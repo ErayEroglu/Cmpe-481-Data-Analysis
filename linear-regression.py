@@ -8,11 +8,11 @@ from sklearn.metrics import mean_squared_error, r2_score
 def main():
     file_path = "diamonds.csv"
     predict_price(file_path)
-    
+
 def preprocess_data(file_path):
     # Load the dataset
     df = pd.read_csv(file_path)
-    
+    print(f"Data loaded from {file_path}, shape: {df.shape}")   
     # Drop unnecessary columns
     dataset = df.drop(["Unnamed: 0"], axis=1)
 
@@ -55,7 +55,7 @@ def preprocess_data(file_path):
 def predict_price(file_path):
     # Preprocess the data
     X_train, X_test, y_train, y_test = preprocess_data(file_path)
-    model = LinearRegression()
+    model = LinearRegression()    
 
     # Train the model
     model.fit(X_train, y_train)
@@ -78,3 +78,5 @@ def predict_price(file_path):
     coefficients = pd.DataFrame({'Feature': X_train.columns, 'Coefficient': model.coef_})
     print("\nFeature Coefficients:")
     print(coefficients.sort_values(by="Coefficient", ascending=False))
+
+main()
