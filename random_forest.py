@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.preprocessing import OrdinalEncoder
-from sklearn.model_selection import KFold, cross_validate, train_test_split
+from sklearn.model_selection import cross_validate, train_test_split
 from sklearn.ensemble import RandomForestRegressor
 import matplotlib.pyplot as plt
 
@@ -16,8 +16,6 @@ def preprocess(path):
     dataset = pd.read_csv(path, index_col=0)
     dataset = dataset.sample(n=sample_size, random_state=42)
     dataset = dataset.reset_index(drop=True)
-    dataset.columns = dataset.columns.str.strip()
-    dataset = dataset.map(lambda x: x.strip() if isinstance(x, str) else x)
 
     # Encoding
     cut_order = ['Fair', 'Good', 'Very Good', 'Premium', 'Ideal']
@@ -46,6 +44,7 @@ def cross_validation(x_train, y_train):
     for n_estimators in n_estimators_range:
         model = RandomForestRegressor(n_estimators=n_estimators,  max_features="log2", random_state=42)
 
+        start_time = time.time()
         cv_scores = cross_validate(
             estimator = model,
             X = x_train,
@@ -54,14 +53,15 @@ def cross_validation(x_train, y_train):
             scoring = scoring,
             n_jobs = -1
         )
+        end_time = time.time()
     
         rmse_scores = (-cv_scores['test_neg_mse']) ** 0.5
         mae_scores = -cv_scores['test_neg_mae']
         scores[n_estimators] = (cv_scores['test_r2'].mean(), cv_scores['test_r2'].std(),
                                 rmse_scores.mean(), rmse_scores.std(),
-                                mae_scores.mean(), mae_scores.std())
+                                mae_scores.mean(), mae_scores.std(), end_time-start_time)
 
-    for n_estimators, (r2_mean, r2_std, rmse_mean, rmse_std, mae_mean, mae_std) in scores.items():
+    for n_estimators, (r2_mean, r2_std, rmse_mean, rmse_std, mae_mean, mae_std, time_) in scores.items():
         print(f"Number of trees: {n_estimators}")
         print(f"Mean R² Score: {r2_mean:.2f}")
         print(f"Standard Deviation of R² Scores: {r2_std:.2f}")
@@ -69,11 +69,12 @@ def cross_validation(x_train, y_train):
         print(f"Standard Deviation of RMSE: {rmse_std:.2f}")
         print(f"Mean MAE: {mae_mean:.2f}")
         print(f"Standard Deviation of MAE: {mae_std:.2f}")
+        print(f"Execution Time: {(time_):.2f} seconds")
         print()
 
 def random_forest_regressor(x_train, y_train):
-    start_time = time.time()
     rf_model = RandomForestRegressor(n_estimators=100, max_features="log2", oob_score=True, random_state=42)
+    start_time = time.time()
     rf_model.fit(x_train, y_train)
     end_time = time.time()
 
@@ -134,18 +135,65 @@ def main():
     with open(output_path, 'w') as f:
         sys.stdout = f
         # cross_validation(x_train, y_train)
-
+    
         # Test the model
         print("TRAIN RESULTS:\n")
         test_regression_model(model, x_train, y_train)
         print(f"OOB Score (R²): {model.oob_score_:.2f}")
-    
+        
         print("\nTEST RESULTS:\n")
         test_regression_model(model, x_test, y_test)
-    
+        
         # Analyze feature importances
         print("\nFEATURE IMPORTANCES:\n")
         feature_importances(model, x_train)
+
+def plot():
+    # Data
+    trees = [100, 200, 300, 500, 1000]
+    mean_r2 = [0.98, 0.98, 0.98, 0.98, 0.98]
+    std_r2 = [0.00, 0.00, 0.00, 0.00, 0.00]
+    mean_rmse = [607.99, 606.31, 605.80, 606.38, 605.56]
+    std_rmse = [21.73, 20.90, 20.08, 20.31, 20.87]
+    mean_mae = [303.84, 302.59, 302.38, 302.24, 301.47]
+    std_mae = [8.62, 8.09, 7.93, 8.04, 8.05]
+    execution_time = [4.83, 7.49, 10.53, 16.28, 54.62]
+
+    # Plot Mean R² and Standard Deviation
+    plt.figure(figsize=(12, 8))
+    plt.subplot(2, 2, 1)
+    plt.errorbar(trees, mean_r2, yerr=std_r2, fmt='o-', label="Mean R²")
+    plt.xlabel("Number of Trees")
+    plt.ylabel("R²")
+    plt.grid(True)
+    plt.legend()
+
+    # Plot Mean RMSE and Standard Deviation
+    plt.subplot(2, 2, 2)
+    plt.errorbar(trees, mean_rmse, yerr=std_rmse, fmt='o-', color='orange', label="Mean RMSE")
+    plt.xlabel("Number of Trees")
+    plt.ylabel("RMSE")
+    plt.grid(True)
+    plt.legend()
+
+    # Plot Mean MAE and Standard Deviation
+    plt.subplot(2, 2, 3)
+    plt.errorbar(trees, mean_mae, yerr=std_mae, fmt='o-', color='green', label="Mean MAE")
+    plt.xlabel("Number of Trees")
+    plt.ylabel("MAE")
+    plt.grid(True)
+    plt.legend()
+
+    # Plot Execution Time
+    plt.subplot(2, 2, 4)
+    plt.plot(trees, execution_time, 'o-', color='red', label="Execution Time")
+    plt.xlabel("Number of Trees")
+    plt.ylabel("Execution Time (seconds)")
+    plt.grid(True)
+    plt.legend()
+    
+    plt.tight_layout()
+    plt.show()
 
 if __name__ == '__main__':
     main()
