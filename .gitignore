@@ -3,3 +3,4 @@
 .venv/*
 !.venv/lib/
 !.venv/lib/python*/site-packages/
+*.txt
