@@ -21,6 +21,7 @@ def preprocess_data(file_path):
 
     # Drop rows with missing values or invalid measurements
     dataset = dataset.dropna()
+
     dataset = dataset[(dataset["x"] > 0) & (dataset["y"] > 0) & (dataset["z"] > 0)]
 
     # Encode categorical features
@@ -139,9 +140,9 @@ def predict_price(file_path):
 
     # Adjust layout and save the plot
     plt.tight_layout()
-    plt.savefig("linear_regression_metrics_with_coefficients.png", dpi=300)
-    print("Cross-validation metrics plot saved as 'linear_regression_metrics_with_coefficients.png'.")
+    plt.savefig("linear_regression_metric.png", dpi=300)
+    print("Cross-validation metrics plot saved as 'linear_regression_metrics.png'.")
 
 
 
-main()
+#main()
