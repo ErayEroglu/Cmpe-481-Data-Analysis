@@ -11,11 +11,21 @@ import matplotlib.pyplot as plt
 input_path = 'diamonds.csv'
 output_path = 'results.txt'
 sample_size = 50000
+outlier_removal = True
+train = True
+test = True
+feature_importance = False
+cross_validate = False
+four_features = False
 
 def preprocess(path):
     dataset = pd.read_csv(path, index_col=0)
     dataset = dataset.sample(n=sample_size, random_state=42)
     dataset = dataset.reset_index(drop=True)
+
+    # Data Cleaning
+    dataset = dataset.dropna()
+    dataset = dataset[(dataset["x"] > 0) & (dataset["y"] > 0) & (dataset["z"] > 0)]
 
     # Encoding
     cut_order = ['Fair', 'Good', 'Very Good', 'Premium', 'Ideal']
@@ -27,6 +37,21 @@ def preprocess(path):
     dataset['cut'] = encoder_cut.fit_transform(dataset[['cut']])
     dataset['clarity'] = encoder_clarity.fit_transform(dataset[['clarity']])
     dataset = pd.get_dummies(dataset, columns=['color'], drop_first=True)
+
+    # Outlier Removal
+    if outlier_removal:
+        numeric_columns = ['carat', 'depth', 'table', 'price', 'x', 'y', 'z']
+        for col in numeric_columns:
+            Q1 = dataset[col].quantile(0.25)
+            Q3 = dataset[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - 1.5 * IQR
+            upper_bound = Q3 + 1.5 * IQR
+            dataset = dataset[(dataset[col] >= lower_bound) & (dataset[col] <= upper_bound)]
+
+    # Keep only 4 "most important" features
+    if four_features:
+        dataset = dataset[['carat', 'x', 'y', 'z', 'price']]
 
     x = dataset.drop(columns=['price'])
     y = dataset['price']
@@ -95,7 +120,7 @@ def test_regression_model(model, x_test, y_test):
     print(f"Mean Absolute Error (MAE): {mae:.2f}")
     print(f"Mean Squared Error (MSE): {mse:.2f}")
     print(f"Root Mean Squared Error (RMSE): {rmse:.2f}")
-    print(f"R² Score: {r2:.2f}")
+    print(f"R² Score: {r2:.3f}")
 
 def feature_importances(model, x_train):
     importances = model.feature_importances_
@@ -118,38 +143,42 @@ def feature_importances(model, x_train):
     for i in sorted_indices:
         print(f"{new_feature_names[i]}: {importances[i]:.4f}")
 
-    # plt.barh(new_feature_names, importances)
-    # plt.xlabel("Feature Importance")
-    # plt.ylabel("Features")
-    # plt.title("Random Forest Feature Importances")
-    # plt.show()
+    plt.barh(new_feature_names, importances)
+    plt.xlabel("Feature Importance")
+    plt.ylabel("Features")
+    plt.title("Random Forest Feature Importances")
+    plt.show()
 
 def main():
     # Preprocess data
     x_train, x_test, y_train, y_test = preprocess(input_path)
 
     #Train the model
-    model, execution_time = random_forest_regressor(x_train, y_train)
-    print(f"Execution time: {execution_time:.2f} seconds")
+    if train:
+        model, execution_time = random_forest_regressor(x_train, y_train)
+        print(f"Execution time: {execution_time:.2f} seconds")
     
     with open(output_path, 'w') as f:
         sys.stdout = f
-        # cross_validation(x_train, y_train)
+        if cross_validate:
+            cross_validation(x_train, y_train)
     
         # Test the model
-        print("TRAIN RESULTS:\n")
-        test_regression_model(model, x_train, y_train)
-        print(f"OOB Score (R²): {model.oob_score_:.2f}")
-        
-        print("\nTEST RESULTS:\n")
-        test_regression_model(model, x_test, y_test)
+        if test:
+            print("TRAIN RESULTS:\n")
+            test_regression_model(model, x_train, y_train)
+            print(f"OOB Score (R²): {model.oob_score_:.2f}")
+
+            print("\nTEST RESULTS:\n")
+            test_regression_model(model, x_test, y_test)
         
         # Analyze feature importances
-        print("\nFEATURE IMPORTANCES:\n")
-        feature_importances(model, x_train)
+        if feature_importance:
+            print("\nFEATURE IMPORTANCES:\n")
+            feature_importances(model, x_train)
 
+# Plotting Cross Validation Results
 def plot():
-    # Data
     trees = [100, 200, 300, 500, 1000]
     mean_r2 = [0.98, 0.98, 0.98, 0.98, 0.98]
     std_r2 = [0.00, 0.00, 0.00, 0.00, 0.00]
@@ -159,7 +188,6 @@ def plot():
     std_mae = [8.62, 8.09, 7.93, 8.04, 8.05]
     execution_time = [4.83, 7.49, 10.53, 16.28, 54.62]
 
-    # Plot Mean R² and Standard Deviation
     plt.figure(figsize=(12, 8))
     plt.subplot(2, 2, 1)
     plt.errorbar(trees, mean_r2, yerr=std_r2, fmt='o-', label="Mean R²")
@@ -168,7 +196,6 @@ def plot():
     plt.grid(True)
     plt.legend()
 
-    # Plot Mean RMSE and Standard Deviation
     plt.subplot(2, 2, 2)
     plt.errorbar(trees, mean_rmse, yerr=std_rmse, fmt='o-', color='orange', label="Mean RMSE")
     plt.xlabel("Number of Trees")
@@ -176,7 +203,6 @@ def plot():
     plt.grid(True)
     plt.legend()
 
-    # Plot Mean MAE and Standard Deviation
     plt.subplot(2, 2, 3)
     plt.errorbar(trees, mean_mae, yerr=std_mae, fmt='o-', color='green', label="Mean MAE")
     plt.xlabel("Number of Trees")
@@ -184,7 +210,6 @@ def plot():
     plt.grid(True)
     plt.legend()
 
-    # Plot Execution Time
     plt.subplot(2, 2, 4)
     plt.plot(trees, execution_time, 'o-', color='red', label="Execution Time")
     plt.xlabel("Number of Trees")
