@@ -151,8 +151,8 @@ def main():
         print("\nFEATURE IMPORTANCES:\n")
         feature_importances(model, x_train)
 
+# Plotting Cross Validation Results
 def plot():
-    # Data
     trees = [100, 200, 300, 500, 1000]
     mean_r2 = [0.98, 0.98, 0.98, 0.98, 0.98]
     std_r2 = [0.00, 0.00, 0.00, 0.00, 0.00]
@@ -162,7 +162,6 @@ def plot():
     std_mae = [8.62, 8.09, 7.93, 8.04, 8.05]
     execution_time = [4.83, 7.49, 10.53, 16.28, 54.62]
 
-    # Plot Mean R² and Standard Deviation
     plt.figure(figsize=(12, 8))
     plt.subplot(2, 2, 1)
     plt.errorbar(trees, mean_r2, yerr=std_r2, fmt='o-', label="Mean R²")
@@ -171,7 +170,6 @@ def plot():
     plt.grid(True)
     plt.legend()
 
-    # Plot Mean RMSE and Standard Deviation
     plt.subplot(2, 2, 2)
     plt.errorbar(trees, mean_rmse, yerr=std_rmse, fmt='o-', color='orange', label="Mean RMSE")
     plt.xlabel("Number of Trees")
@@ -179,7 +177,6 @@ def plot():
     plt.grid(True)
     plt.legend()
 
-    # Plot Mean MAE and Standard Deviation
     plt.subplot(2, 2, 3)
     plt.errorbar(trees, mean_mae, yerr=std_mae, fmt='o-', color='green', label="Mean MAE")
     plt.xlabel("Number of Trees")
@@ -187,7 +184,6 @@ def plot():
     plt.grid(True)
     plt.legend()
 
-    # Plot Execution Time
     plt.subplot(2, 2, 4)
     plt.plot(trees, execution_time, 'o-', color='red', label="Execution Time")
     plt.xlabel("Number of Trees")
