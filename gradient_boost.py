@@ -4,15 +4,18 @@ from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.preprocessing import OrdinalEncoder
 from xgboost import XGBRegressor, plot_importance
 
 input_path = 'diamonds.csv'
 output_path = 'results.txt'
+outlier_removal = True
 train = True
 test = True
 feature_importance = False
+cross_validate = False
+four_features = False
 
 def preprocess(path):
     dataset = pd.read_csv(path, index_col=0)
@@ -33,6 +36,21 @@ def preprocess(path):
     dataset['clarity'] = encoder_clarity.fit_transform(dataset[['clarity']])
     dataset = pd.get_dummies(dataset, columns=['color'], drop_first=True)
 
+    # Outlier Removal
+    if outlier_removal:
+        numeric_columns = ['carat', 'depth', 'table', 'price', 'x', 'y', 'z']
+        for col in numeric_columns:
+            Q1 = dataset[col].quantile(0.25)
+            Q3 = dataset[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - 1.5 * IQR
+            upper_bound = Q3 + 1.5 * IQR
+            dataset = dataset[(dataset[col] >= lower_bound) & (dataset[col] <= upper_bound)]
+
+    # Keep only 4 "most important" features
+    if four_features:
+        dataset = dataset[['carat', 'x', 'y', 'z', 'price']]
+
     # Defining the features and target
     x = dataset.drop(columns=['price'])
     y = dataset['price']
@@ -41,17 +59,19 @@ def preprocess(path):
 
 def train_XGBRegressor(x, y):
     x_train, x_validation, y_train, y_validation = train_test_split(x, y, test_size=0.2, random_state=42)
-    model = XGBRegressor(n_estimators=100,    # Number of trees
-                        learning_rate=0.1,    # Step size shrinkage
-                        max_depth=3,          # Maximum tree depth
-                        subsample=0.8,        # Subsample ratio
-                        colsample_bytree=0.8, # Subsample ratio of columns
-                        random_state=42)      # For reproducibility
+    model = XGBRegressor(n_estimators=95,
+                        learning_rate=0.087,
+                        max_depth=9,
+                        subsample=0.8,
+                        colsample_bytree=0.8,
+                        importance_type='total_gain',
+                        early_stopping_rounds=10,
+                        random_state=42)
     start_time = time.time()
     model.fit(x_train,
               y_train,
               eval_set=[(x_validation, y_validation)],
-              verbose=True)
+              verbose=False)
     end_time = time.time()
     return model, end_time - start_time
 
@@ -70,10 +90,33 @@ def test_regression_model(model, x_test, y_test):
     print(f"Mean Absolute Error (MAE): {mae:.2f}")
     print(f"Mean Squared Error (MSE): {mse:.2f}")
     print(f"Root Mean Squared Error (RMSE): {rmse:.2f}")
-    print(f"R² Score: {r2:.2f}")
+    print(f"R² Score: {r2:.3f}")
 
 def feature_importances(model):
     plot_importance(model)
+    plt.show()
+
+def cross_validation(x_train, y_train):
+    param_grid = {'n_estimators': [95],
+                  'learning_rate': [0.087],
+                  'max_depth': [5, 6, 7, 8, 9, 10, 11, 12],
+                  'subsample': [0.8],
+                  'colsample_bytree': [0.8]}
+    grid_search = GridSearchCV(estimator=XGBRegressor(random_state=42),
+                               param_grid=param_grid,
+                               scoring='neg_root_mean_squared_error',
+                               refit='neg_root_mean_squared_error',
+                               cv=5,
+                               verbose=2)
+    grid_search.fit(x_train, y_train)
+    df = pd.DataFrame(grid_search.cv_results_)
+    plt.figure(figsize=(10, 6))
+    plt.plot(df['param_max_depth'], -df['mean_test_score'], marker='o', label='Mean RMSE')
+    plt.title('MAX DEPTH')
+    plt.xlabel('max_depth')
+    plt.ylabel('RMSE')
+    plt.grid(True)
+    plt.legend()
     plt.show()
 
 def main():
@@ -86,6 +129,9 @@ def main():
         print(f"Execution time: {execution_time:.2f} seconds")
     with open(output_path, 'w') as f:
         sys.stdout = f
+        # 5-Fold Cross Validation
+        if cross_validate:
+            cross_validation(x_train, y_train)
         # Test the Model
         if test:
             print("TRAIN RESULTS:\n")
