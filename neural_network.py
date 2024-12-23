@@ -22,15 +22,15 @@ def sample_dataset(x, y, fraction=0.2, random_state=42):
     sample_indices = np.random.choice(len(x), int(len(x) * fraction), replace=True)
     return x.iloc[sample_indices], y.iloc[sample_indices]
 
-def predict_price(file_path):
+def plot_hyperparameters(file_path):
     x_train, x_test, y_train, y_test = preprocess_data(file_path)
     input_dim = x_train.shape[1]
     x_train_sampled, y_train_sampled = sample_dataset(x_train, y_train, fraction=0.5)
 
     learning_rates = [0.01, 0.1, 0.2, 0.4, 1.0]
-    batch_sizes = [16, 32, 64, 128, 256]
+    batch_sizes = [32, 64, 80, 100, 256]
     epochs_list = [10, 20, 50, 100, 200]
-    layers_list = [[64, 32], [64, 32, 16], [64, 32, 16, 8], [64, 32, 16, 8, 4], [64, 32, 16, 8, 4, 2]]
+    layers_list = [[64, 32], [64, 32, 16], [64, 32, 16, 8], [128, 64], [128, 64, 32]]
     results = {'learning_rate': [], 'batch_size': [], 'epochs': [], 'layers': []}
 
     kf = KFold(n_splits=5, shuffle=True, random_state=42)
@@ -97,8 +97,49 @@ def predict_price(file_path):
     plt.xticks(range(len(layers_list)), [str(l) for l in layers_list], rotation=45)
 
     plt.tight_layout()
+    plt.savefig("neural_networks_metrics.png", dpi=300)
     plt.show()
-    plt.savefig("neural_network_metrics.png", dpi=300)
+
+def predict_price(file_path):
+    x_train, x_test, y_train, y_test = preprocess_data(file_path, True)
+    input_dim = x_train.shape[1]
+    start_time = time.time()
+    model = build_model(input_dim, layers=[64, 32, 16, 8], learning_rate=0.01)
+    model.fit(x_train, y_train, epochs=200, batch_size=16, verbose=0)
+    execution_time = time.time() - start_time
+    train_pred = model.predict(x_train).flatten()
+    train_mse = mean_squared_error(y_train, train_pred)
+    train_r2 = r2_score(y_train, train_pred)
+    train_mae = mean_absolute_error(y_train, train_pred)
+
+    print(f"Training Mean squared error: {train_mse:.2f}")
+    print(f"Training R^2 score: {train_r2:.4f}")
+    print(f"Training Mean absolute error: {train_mae:.2f}")
+    print(f"Training execution time: {execution_time:.2f} seconds")
+
+    start_time = time.time()
+    y_pred = model.predict(x_test).flatten()
+    execution_time = time.time() - start_time
+    mse = mean_squared_error(y_test, y_pred)
+    r2 = r2_score(y_test, y_pred)
+    mae = mean_absolute_error(y_test, y_pred)
+
+    print(f"Execution time: {execution_time:.2f} seconds")
+    print(f"Mean squared error: {mse:.2f}")
+    print(f"R^2 score: {r2:.4f}")
+    print(f"Mean absolute error: {mae:.2f}")
+
+    plt.figure(figsize=(12, 6))
+    plt.scatter(y_test, y_pred, alpha=0.2)
+    plt.plot([0, max(y_test)], [0, max(y_test)], '--k')
+    plt.axis('equal')
+    plt.title('Actual vs Predicted Prices')
+    plt.xlabel('Actual Price')
+    plt.ylabel('Predicted Price')
+    plt.savefig("neural_networks_predictions.png", dpi=300)
+    plt.show()
+
+    return model
 
 if __name__ == '__main__':
     predict_price("diamonds.csv")
