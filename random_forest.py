@@ -17,6 +17,9 @@ def preprocess(path):
     dataset = dataset.sample(n=sample_size, random_state=42)
     dataset = dataset.reset_index(drop=True)
 
+    dataset = dataset.dropna()
+    dataset = dataset[(dataset["x"] > 0) & (dataset["y"] > 0) & (dataset["z"] > 0)]
+
     # Encoding
     cut_order = ['Fair', 'Good', 'Very Good', 'Premium', 'Ideal']
     clarity_order = ['I1', 'SI2', 'SI1', 'VS2', 'VS1', 'VVS2', 'VVS1', 'IF']
